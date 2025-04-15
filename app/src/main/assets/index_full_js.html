@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>ChatBox</title>
+    <script>
+        (function(t,a,l,k,j,s){
+            s=a.createElement('script');s.async=1;s.src="https://cdn.talkjs.com/talk.js";a.head.appendChild(s);
+            k=t.Promise;t.Talk={v:3,ready:{then:function(f){if(k)return new k(function(r,e){l.push([f,r,e])});l.push([f])},catch:function(){return k&&new k()},c:l}};})(window,document,[]);
+    </script>
+</head>
+<body>
+<div id="talkjs-container" style="position: absolute; top: 0; bottom: 0; left: 0; right: 0;">
+    &nbsp;
+</div>
+
+<script>
+        var options = JSON.parse(app.getOptions());
+
+        // this makes it easier to find the right webview in Chrome Devtools (navigate to chrome://inspect)
+        document.title = options.uiType;
+
+        Talk.ready.then(function() {
+            var me = new Talk.User(options.currentUser);
+
+            window.talkSession = new Talk.Session({
+                appId: options.appId,
+                me: me
+            });
+
+            var ui;
+            if (options.uiType === "inbox") {
+                ui = createInbox();
+            } else {
+                ui = createChatbox(me, options);
+            }
+
+            ui.mount(document.getElementById("talkjs-container")).then(function() {
+                app.showChatUi();
+            });
+
+        }).catch(function(error) {
+            // ensure that errors are shown on the devtools console, even on old Android versions.
+            console.error(error);
+        });
+
+        function createInbox() {
+            var inbox = talkSession.createInbox({ selected: null, showMobileBackButton: false });
+
+            inbox.onSelectConversation(function(event) {
+                // This prevents the TalkJS inbox UI from actually opening the chat. Instead, we want to
+                // open a new Android activity with a TalkJS chatbox UI, so that the navigation works as
+                // users expect.
+                event.preventDefault();
+
+                // Tell the app to switch to the chatbox activity
+                app.openConversation(event.conversation.id, event.others[0].name);
+            });
+
+            return inbox;
+        }
+
+        function createChatbox(me, options) {
+            var conversation;
+
+            if (options.conversationId) {
+                // continuing a chat selected in the inbox
+                conversation = talkSession.getOrCreateConversation(options.conversationId);
+            } else if (options.chatWith) {
+                // starting (or continuing) a conversation with a particular user
+                var other = new Talk.User(options.chatWith);
+
+                var conversationId = Talk.oneOnOneId(me, other);
+                conversation = talkSession.getOrCreateConversation(conversationId);
+                conversation.setParticipant(me);
+                conversation.setParticipant(other);
+            }
+
+            return talkSession.createChatbox(conversation, {
+                showChatHeader: false
+            });
+        }
+    </script>
+</body>
+</html>
